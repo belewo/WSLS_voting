@@ -1,0 +1,131 @@
+#-----------------------------------------------------------
+Example of Driver Code
+#-----------------------------------------------------------
+#Setting Parameters
+
+Nb_Voters = 100
+Nb_Candidates = 6
+
+treshold = 3
+rounds = 100
+cases= 100
+
+no_change_pos = 1
+change_pos_str = 0
+cast_pos_str = 0
+
+no_change_neg = 1
+change_neg_str = 0
+cast_neg_str = 0
+
+Voters_list = []
+
+Pl_man = []
+VFT_man = []
+Minus_man = []
+Thr_man = []
+Fou_man = []
+
+Pl_man_last = []
+VFT_man_last = []
+Minus_man_last = []
+Thr_man_last = []
+Fou_man_last = []
+
+for s in range(cases):
+
+    # This generates preferences from a Social choice modul that allows standard distribution of preferences
+    pop = svvamp.GeneratorProfileSpheroid(Nb_Voters, Nb_Candidates)
+    profile = pop()
+    #converts preferences to ordinal preferencs
+    preferences_pop = profile.preferences_rk
+    #converts the preferencs in a dictionary form
+    for v in range(rounds):
+        preferences = {}
+        for c in range(Nb_Candidates):
+            preferences[c] = preferences_pop[v][c]
+        Voters_list.append(Voter(preferences,treshold))
+
+    Pl = Election(1,0,Voters_list,Nb_Candidates )
+    VFT = Election(2,0,Voters_list,Nb_Candidates )
+    Thr = Election(3,0,Voters_list,Nb_Candidates )
+    Fou = Election(4,0,Voters_list,Nb_Candidates )
+    Minus = Election(0,1,Voters_list, Nb_Candidates )
+    #Goes through several elections with the behavior specified before for two different voting methods
+
+    for i in range(rounds):
+        VFT.elects( no_change_pos, change_pos_str, cast_pos_str, no_change_neg , cast_neg_str, cast_neg_str)
+    VFT.reset_Voter_pop()
+
+    for i in range(rounds):
+        Pl.elects( no_change_pos, change_pos_str, cast_pos_str, no_change_neg , cast_neg_str, cast_neg_str)
+    Pl.reset_Voter_pop()
+
+    for i in range(rounds):
+        Thr.elects( no_change_pos, change_pos_str, cast_pos_str, no_change_neg , cast_neg_str, cast_neg_str)
+    Thr.reset_Voter_pop()
+
+    for i in range(rounds):
+        Fou.elects( no_change_pos, change_pos_str, cast_pos_str, no_change_neg , cast_neg_str, cast_neg_str)
+    Fou.reset_Voter_pop()
+
+
+    for i in range(rounds):
+        Minus.elects( no_change_pos, change_pos_str, cast_pos_str, no_change_neg , cast_neg_str, cast_neg_str)
+    Minus.reset_Voter_pop()
+
+
+    Pl.set_manipulation()
+    Pl_man.append(Pl.calc_manipulation_perc())
+    Pl.set_manipulation_last()
+    Pl_man_last.append(Pl.get_manipulation_last())
+
+    VFT.set_manipulation()
+    VFT_man.append(VFT.calc_manipulation_perc())
+    VFT.set_manipulation_last()
+    VFT_man_last.append(VFT.get_manipulation_last())
+
+    Thr.set_manipulation()
+    Thr_man.append(Thr.calc_manipulation_perc())
+    Thr.set_manipulation_last()
+    Thr_man_last.append(Thr.get_manipulation_last())
+
+    Fou.set_manipulation()
+    Fou_man.append(Fou.calc_manipulation_perc())
+    Fou.set_manipulation_last()
+    Fou_man_last.append(Fou.get_manipulation_last())
+
+    Minus.set_manipulation()
+    Minus_man.append(Minus.calc_manipulation_perc())
+    Minus.set_manipulation_last()
+    Minus_man_last.append(Minus.get_manipulation_last())
+
+    Pl.reset_election()
+    VFT.reset_election()
+    Thr.reset_election()
+    Fou.reset_election()
+    Minus.reset_election()
+
+Pl_man_avg = sum(Pl_man)/len(Pl_man)
+VFT_man_avg = sum(VFT_man)/len(VFT_man)
+Minus_man_avg = sum(Minus_man)/len(Minus_man)
+Thr_man_avg = sum(Thr_man)/len(Thr_man)
+Fou_man_avg = sum(Fou_man)/len(Fou_man)
+
+Pl_man_last_avg = sum(Pl_man_last)/len(Pl_man_last)
+VFT_man_last_avg = sum(VFT_man_last)/len(VFT_man_last)
+Thr_man_last_avg = sum(Thr_man_last)/len(Thr_man_last)
+Fou_man_last_avg = sum(Fou_man_last)/len(Fou_man_last)
+Minus_man_last_avg = sum(Minus_man_last)/len(Minus_man_last)
+
+print(Pl_man_avg)
+print(VFT_man_avg)
+print(Thr_man_avg)
+print(Fou_man_avg)
+print(Minus_man_avg)
+
+print(Pl_man_last_avg)
+print(VFT_man_last_avg)
+print(Thr_man_last_avg)
+print(Fou_man_last_avg)
+print(Minus_man_last_avg)

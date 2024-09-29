@@ -1,0 +1,303 @@
+
+#---------------------------------------------------------------------------------------------
+# Modul Imports
+#---------------------------------------------------------------------------------------------
+import numpy as np
+import random 
+from random import sample 
+import heapq
+from operator import itemgetter
+import plotnine as p9
+import pandas as pd
+from plotnine import aes, geom_line, geom_bar
+
+#---------------------------------------------------------------------------------------------
+# New Class: Voter
+#---------------------------------------------------------------------------------------------
+
+class Voter(object):
+
+    def __init__(self, preferences, treshhold):
+        """This class creates a Voter with preferences and a set of acceptable candidates determined by the treshold"""
+        """" Voters expect a winner and have a memory of what they voted before in case they did multiple times"""
+        """Input preferences are assumed to be in a dictionary with the key the name and the value the rank (or utility)"""
+        self.preferences = preferences
+        self.priorbehavior = {}
+        self.priorbehavior_negative = {}
+        self.ok_candidates = heapq.nlargest(treshhold, self.preferences.items(), key=itemgetter(1))
+        self.exp_winner = None
+        
+    def convert(self,tup, di):
+        """Converts a list of tuples to a dictionary"""
+        #Code taken from ttps://www.geeksforgeeks.org/python-convert-list-tuples-dictionary/
+        for a, b in tup: 
+            di.setdefault(a, []).append(b) 
+        return di 
+    
+    def set_preferences(self, preferences):
+        """Changes the preferences of the voter """
+        self.preferences = preferences
+    
+    def get_preferences(self):
+        """Gets the preferences of the voter """
+        return self.preferences
+    
+    def set_prior_behavior(self, behavior):
+        """Sets the voting behavior with positive votes of last election """
+        self.convert(behavior,self.priorbehavior) 
+        
+    def get_prior_behavior(self):
+        """ Gets the candidates and the preference rank for whom the voter elected past election with positive votes"""
+        return  self.priorbehavior 
+    
+    def set_prior_behavior_negative(self, behavior):
+        """Sets the voting behavior with negative votes of last election"""
+        self.convert(behavior,self.priorbehavior_negative)
+        
+    def get_prior_behavior_negative(self):
+        """Gets the candidates and the preference rank for whom the voter voted in the past election with negative votes"""
+        return self.priorbehavior_negative   
+    
+    def set_ok_candidates(self, treshold):
+        """Changes the candidates with whom the voter is satisfied. The satisfaction is rank dependent (treshold)"""
+        self.ok_candidates = heapq.nlargest(treshhold, self.preferences.items(), key=itemgetter(1))
+        
+    def get_ok_candidates(self):
+        """Gets the candidates with whom the voter is satisfied """
+        return self.ok_candidates
+    
+    def set_exp_winner(self,Polls):
+        """Sets the exp winner to the candidate who won the last election """
+        #self.exp_winner = heapq.nlargest(1, Polls.items(), key=itemgetter(1))
+        max_key = max(Polls, key=Polls.get)
+        self.exp_winner = (max_key, self.preferences[max_key])
+        
+    
+    def get_exp_winner (self):
+        """Returns the expected winner for the candidate """
+        return self.exp_winner 
+
+        
+    def WSLS (self, Polls, positive_votes, negative_votes, np_p_changed_votes, m_p_changed_votes, m_p_new_votes,
+             np_n_changed_votes, m_n_changed_votes, m_n_new_votes):
+        """This function determines the voting behavior. Here always being a version of WSLS"""
+        """It consists of the number of positive and negative votes and how many of those may be changed strategically"""
+        """It also specifies which votes the voters changes and which candidates they will vote for/against instead"""
+        
+        if self.exp_winner == None:
+            # In the first round voters vote honestly e.g. give postive votes to most favored candidates etc.
+            self.set_prior_behavior(heapq.nlargest(positive_votes, self.preferences.items(), key=itemgetter(1)))
+            self.set_prior_behavior_negative(heapq.nsmallest(negative_votes, self.preferences.items(), key=itemgetter(1)))
+          
+            
+        # If noone won last time who is an acceptable candidate they will cast votes differently
+        else:         
+            
+            if self.exp_winner not in self.ok_candidates:  
+        #----------------------------------------------------------------------------------------
+        # This section deals with how the positive votes are selected
+        
+                free_candidates = []
+                prior_behavior_list = []
+            
+                #seperates candidates for who the voter voted and did not vote for in the last round 
+                for key, val in self.preferences.items():
+                    if key not in self.get_prior_behavior():
+                        free_candidates.append((key, val))
+                    else:
+                        prior_behavior_list.append((key, val))
+                    
+            # determines how the voter selects the votes she changes and how to change them
+                if prior_behavior_list:
+                    if m_p_changed_votes == 0:
+                        # select the votes to change at random
+                        changed_vote = random.choices(prior_behavior_list , k=np_p_changed_votes)
+                    if m_p_changed_votes == 1:
+                        # selects the votes to change according to which candidates rank lowest in their preference ranking
+                        changed_vote = heapq.nsmallest(np_p_changed_votes, prior_behavior_list, key=itemgetter(1))
+                    if m_p_new_votes == 0:
+                        # casts the votes for random candidates
+                        new_vote = random.sample(free_candidates, k = np_p_changed_votes)
+                    if m_p_new_votes == 1:
+                        # casts the votes according to which candidates rank highest in their preference ranking
+                        new_vote = heapq.nlargest(np_p_changed_votes, prior_behavior_list, key=itemgetter(1))
+                    # updates the candidates for who the voter votes
+
+                    for i in changed_vote:
+                        del self.priorbehavior[i[0]]
+                    for i in new_vote:
+                        self.priorbehavior[i[0]] = i[1]
+            #------------------------------------------------------------------------------------------------------ 
+            # This section deals with how the negative votes are selected
+        
+                free_candidates = []
+                prior_behavior_negative_list = []
+            
+                #seperates candidates against who the voter voted and did not vote against in the last round 
+                for key, val in self.preferences.items():
+                    if key not in self.get_prior_behavior_negative():
+                        free_candidates.append((key, val))
+                    else:
+                        prior_behavior_negative_list.append((key, val)) 
+                    
+                # determines how the voter selects the votes she changes and how to change them       
+                if prior_behavior_negative_list:
+                    if m_n_changed_votes == 0:
+                        # select the votes to change at random
+                        changed_vote = random.choices(prior_behavior_negative_list , k=np_n_changed_votes)
+                    if m_n_changed_votes == 1:
+                        # selects the votes to change according to which candidates rank highest in their preference ranking
+                        changed_vote = heapq.nlargest(np_n_changed_votes, prior_behavior_negative_list, key=itemgetter(1))
+                    if m_n_new_votes == 0:
+                        # casts the votes against random candidates
+                        new_vote = random.sample(free_candidates, k = np_n_changed_votes)
+                    if m_n_new_votes == 1:
+                        # casts the votes according to which candidates rank lowest in their preference ranking
+                        new_vote = heapq.nsmallest(np_n_changed_votes, prior_behavior_negative_list, key=itemgetter(1))
+                
+                    # updates the candidates against who the voter votes
+                    for i in changed_vote:
+                        del self.priorbehavior_negative[i[0]]
+                    for i in new_vote:
+                        self.priorbehavior_negative[i[0]] = i[1]
+            
+          # updates the Polls            
+        for n in self.get_prior_behavior().keys():
+            Polls[n] = Polls[n] + 1
+        for n in self.get_prior_behavior_negative().keys():
+            Polls[n] = Polls[n] - 1
+        return Polls
+    
+    def reset_Voter(self):
+        """Resets the memory of the voters"""
+        self.priorbehavior_negative.clear()
+        self.priorbehavior.clear()  
+        self.exp_winner = None
+        
+#---------------------------------------------------------------------------------------------
+# New Class: Election
+#---------------------------------------------------------------------------------------------
+    
+class Election(object):
+
+    def __init__(self, positive_votes, negative_votes, Voters_list, Nb_Candidates):
+        """This creates an election with a certain voting method"""
+        """It stores several results of and needs a list of objects type Voter"""
+        self.positive_votes = positive_votes
+        self.negative_votes = negative_votes
+        self.winner_dic = {}
+        self.honest_Polls = {i: [] for i in range(Nb_Candidates)}
+        self.Voters_list = Voters_list
+        self.result_dic = {str(i): [] for i in range(Nb_Candidates)}
+        self.winner_list = []
+        self.Nb_Candidates = Nb_Candidates
+        self.honest_winner = None
+        self.Polls = {}
+        self.manipulation_count = None
+        self.manipulation_count_last = None
+    def elects(self, np_p_changed_votes, m_p_changed_votes, m_p_new_votes, np_n_changed_votes, m_n_changed_votes, m_n_new_votes): 
+        
+        """This lets a population of voters vote and stores election winners and polls for the object instance """
+        """It takes the numbers of negative and positive a voter may change from prior voting and in which manner"""
+        self.Polls = {i: 0 for i in range(self.Nb_Candidates)}
+        #controls that voters are not required to change more votes than the voting method permits
+        if (self.positive_votes < np_p_changed_votes):
+            #print("Warning!: Voter only changed ", self.positive_votes, " positive votes instead of ", np_p_changed_votes,               "votes because of the voting method.")
+            np_p_changed_votes = self.positive_votes
+        if (self.negative_votes < np_n_changed_votes):
+           # print("Warning!: Voter only changed ", self.negative_votes, "negative votes instead of ", np_n_changed_votes,                "votes because of the voting method." )
+            np_n_changed_votes = self.negative_votes
+        
+        # all voters in the election vote
+        for v in self.Voters_list:
+            v.WSLS(self.Polls, self.positive_votes, self.negative_votes, np_p_changed_votes, m_p_changed_votes,                          m_p_new_votes, np_n_changed_votes, m_n_changed_votes, m_n_new_votes)
+            
+        #sets the expected winner to the winner of last election for every voter
+        for v in self.Voters_list:
+            v.set_exp_winner(self.Polls)
+        
+        # determines the winner in this election
+        
+        winner = heapq.nlargest(1, self.Polls.items(), key=itemgetter(1))
+        if (self.honest_winner == None):
+            self.honest_winner = winner
+        # adds the current winner to list of all winners of prior elections
+        self.winner_list.append(winner[0][0])
+        for key, val in self.Polls.items():
+            self.result_dic[str(key)].append(val)
+            
+        # Makes a list for each candidate would how many votes thy would have got if no voter would vote strategically    
+        for i in range(self.Nb_Candidates):    
+            self.honest_Polls[i].append(self.result_dic[str(i)][0]) 
+        # converts this list to a dict in order to graph it later more easily
+        for i in range(self.Nb_Candidates):
+            key_i = 'honest_{}'.format(i)
+            self.result_dic[key_i] = self.honest_Polls[i] 
+        
+        return self.Polls
+        
+    def get_winner_lst(self):
+        """Gets the winner list"""
+        return self.winner_list
+    
+    def get_honest_winner(self):
+        "Returns the candidate who would have won if there were no strategic voting"
+        return self.honest_winner
+    
+    def reset_Voter_pop(self):
+        """Resets the memory of voter population """
+        for v in self.Voters_list:
+            v.reset_Voter()
+            
+    def reset_election(self):
+        """Resets all of the result saved in this class"""
+        self.winner_dic = {}
+        self.honest_Polls = {i: [] for i in range(self.Nb_Candidates)}
+        self.result_dic = {str(i): [] for i in range(self.Nb_Candidates)}
+        self.winner_list = []
+        self.honest_winner = None
+        self.Polls = {}
+        self.manipulation_count = None
+        
+            
+    def graph_candidate(self,candidate):
+        """Graphs the votes a candidate received and the votes the canidate would have received witout strategic behavior"""
+        temp_round_list = list(range(len(self.winner_list)))
+        canidate_honest = "honest_" + str(candidate)
+        self.result_dic.update({"rounds": temp_round_list})
+        dn = pd.DataFrame(self.result_dic)
+        return p9.ggplot(aes(x='rounds'), data=dn) +\
+        geom_line(aes(y=str(candidate)),  color='purple') +\
+        geom_line(aes(y=canidate_honest), color='black') +\
+        p9.xlab("Rounds") +\
+        p9.ylab("purple: votes for " + str(candidate)+ " , black: the honest Poll ")
+    
+
+    def set_manipulation(self):
+        """calculates how many times the elections elected the honest winner"""
+        honest_winner = 0
+        honest_winner = heapq.nlargest(1, self.honest_Polls.items(), key=itemgetter(1))  
+        self.manipulation_count = self.winner_list.count(honest_winner[0][0])
+        
+    def set_manipulation_last(self):
+        """calculates how many times the elections elected the honest winner"""
+        honest_winner = 0
+        honest_winner = heapq.nlargest(1, self.honest_Polls.items(), key=itemgetter(1))
+        last_vote = len(self.winner_list)
+        if self.winner_list[last_vote-1] == honest_winner[0][0]:
+            self.manipulation_count_last = 100
+        else:
+            self.manipulation_count_last = 0
+            
+    def get_manipulation_last(self):
+        """Gets whether the last election was succesfully manipulated """
+        return self.manipulation_count_last
+        
+        
+    def get_manipulation(self):
+        """Gets the manipulation count """
+        return self.manipulation_count 
+
+    def calc_manipulation_perc(self):
+        "Calculates the percentage the honest winner got elected"
+        return (self.manipulation_count*100)/ len(self.honest_Polls[0])
